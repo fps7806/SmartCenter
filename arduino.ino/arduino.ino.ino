@@ -27,8 +27,12 @@ bool move = false;
 bool autoLight = true;
 void loop() {
     int sensorValue = analogRead(sensorPin); 
+    if(sensorValue < 150.0f)
+      sensorValue = 0.0f;
+    else
+      sensorValue = sensorValue - 149.0f;
     Serial.println(sensorValue, DEC);
-    brightness = min((sensorValue-149.0f)/(670.0f-149.0f),1.0f);
+    brightness = min(sensorValue/(670.0f-149.0f),1.0f);
     doWaves(brightness);
     static long startTime = millis();
     long elapsedTime = startTime-millis();
