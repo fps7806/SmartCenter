@@ -11,7 +11,9 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -45,23 +47,32 @@ public class SpotifyFragment extends Fragment {
             Intent intent = SpotifyModule.Self.CreateLoginIntent(getActivity());
             startActivityForResult(intent, REQUEST_CODE);
         }
+        View view = inflater.inflate(R.layout.fragment_spotify, container, false);
+
+        FrameLayout bottom = (FrameLayout) view.findViewById(R.id.bottom_menu);
+        bottom.addView(SpotifyModule.Self.InflateUniversal(inflater, container));
+
+        Button search = (Button) view.findViewById(R.id.BTsearch);
+        search.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                searchSongs();
+            }
+        });
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_spotify, container, false);
+        return view;
     }
     private void searchSongs() {
-        final EditText titleET = null;//(EditText) findViewById(R.id.ETtitle);
-        final EditText artistET = null;//(EditText) findViewById(R.id.ETartist);
+        final EditText titleET = (EditText) getView().findViewById(R.id.ETtitle);
+        final EditText artistET = (EditText) getView().findViewById(R.id.ETartist);
 
         String title = String.valueOf(titleET.getText());
         String artist = String.valueOf(artistET.getText());
-        new SongSearchTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR,title,artist);
-
-
-
+        new SongSearchTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR,title,artist);
     }
 
     private void createTable(List<Song> songlist) {
-        TableLayout ll = null;//(TableLayout) findViewById(R.id.searchResultsTable);
+        TableLayout ll = (TableLayout) getView().findViewById(R.id.searchResultsTable);
         ll.removeAllViews();
         TextView tvTitle;
         TextView tvArtist;
@@ -104,7 +115,7 @@ public class SpotifyFragment extends Fragment {
                     @Override
                     public void onClick(View v) {
                         Log.d("PLAY","clicked to play: "+s.getTitle()+" by "+s.getArtistName()+" id:"+s.getID());
-                        HandleSongToPlay(s);
+                        SpotifyModule.Self.PlaySong(s);
                     }
                 });
 
@@ -112,7 +123,7 @@ public class SpotifyFragment extends Fragment {
                     @Override
                     public void onClick(View v) {
                         Log.d("PLAY","clicked to play: "+s.getTitle()+" by "+s.getArtistName()+" id:"+s.getID());
-                        HandleSongToPlay(s);
+                        SpotifyModule.Self.PlaySong(s);
                     }
                 });
 
@@ -121,8 +132,7 @@ public class SpotifyFragment extends Fragment {
                     public void onClick(View v) {
                         Log.d("PLAY","clicked to play: "+s.getTitle()+" by "+s.getArtistName()+" id:"+s.getID());
 
-                        HandleSongToPlay(s);
-
+                        SpotifyModule.Self.PlaySong(s);
                     }
                 });
 
@@ -130,29 +140,6 @@ public class SpotifyFragment extends Fragment {
         }
     }
 
-    private void HandleSongToPlay(Song s) {
-        Track spotifyTrack = null;
-        try {
-            // spotifyTrack = s.getTrack("spotify-WW");
-            AsyncTask<Song, Void, Track> st = new SpotifyTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, s);
-
-            spotifyTrack = st.get();
-
-
-            if (spotifyTrack != null) {
-                String spotifyID="";
-                AsyncTask<Track, Void, String> tt = new SpotifyTrackIDTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, spotifyTrack);
-
-                spotifyID = tt.get().trim();
-
-                System.out.printf("Spotify FID %s\n", spotifyID);
-                Log.d("PLAY", "Paused");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -169,7 +156,6 @@ public class SpotifyFragment extends Fragment {
 
                 SpotifyModule.Self.accessToken = response.getAccessToken();
                 SpotifyModule.Self.CreatePlayer(getActivity());
-                 SpotifyModule.Self.FindSongAndPlay();//laySong("spotify:track:1QUOoDUouDDTAwzjIong25");
             }else{
                 Log.d("PLAYER","TOKEN not valid:"+response.getType() +"  req:"+AuthenticationResponse.Type.TOKEN);
             }

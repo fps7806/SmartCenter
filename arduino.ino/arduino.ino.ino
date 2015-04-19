@@ -37,7 +37,7 @@ void loop() {
     static long startTime = millis();
     long elapsedTime = startTime-millis();
     startTime = millis();
-    t += 0.001f*elapsedTime;
+    t += 0.0015f*elapsedTime;
 }
 
 void doRandomRainbow(float scale)

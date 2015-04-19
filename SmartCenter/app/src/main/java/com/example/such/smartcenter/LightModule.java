@@ -9,6 +9,12 @@ import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.SeekBar;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -17,10 +23,7 @@ import java.util.List;
  * Created by Such on 4/18/2015.
  */
 public class LightModule extends CenterModule {
-    static public  LightModule Self;
-    public LightModule() {
-        Self = this;
-    }
+    public float value = 0.6f;
 
     static public class BluetoothConnection {
         private BluetoothGatt bluetoothGatt;
@@ -67,17 +70,45 @@ public class LightModule extends CenterModule {
         return R.drawable.ic_light;
     }
 
+    @Override
+    public View InflateUniversal(LayoutInflater inflater, ViewGroup root) {
+        View view =  inflater.inflate(R.layout.item_control_light, root, false);
+
+        SeekBar bar = (SeekBar)view.findViewById(R.id.seekBar);
+        bar.setProgress((int) (value*100));
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                LightModule.this.value = progress / 100.0f;
+                SetBrightness(1.0f);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
+        return view;
+    }
+
     public static byte [] float2ByteArray (float value)
     {
         return ByteBuffer.allocate(4).putFloat(value).array();
     }
 
     public void SetBrightness(float value) {
-        connection.Send(float2ByteArray(value));
+        if(connection != null)
+            connection.Send(float2ByteArray(value*this.value));
     }
 
     @Override
-    public void OnClick(ActionBarActivity context) {
+    public void OnClick(ActionBarActivity context, ImageView view) {
         if(connection == null) {
             LeDevicesFragment fragment = new LeDevicesFragment();
             fragment.module = this;
@@ -88,8 +119,11 @@ public class LightModule extends CenterModule {
                     .commit();
         }
         else {
-            float value = 0.8f;
-            SetBrightness(value);
+            if(this.value == 0.0f)
+                this.value = 0.6f;
+            else
+                this.value = 0.0f;
+            SetBrightness(1.0f);
         }
     }
 }

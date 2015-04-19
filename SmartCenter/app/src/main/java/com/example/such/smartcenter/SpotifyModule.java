@@ -5,8 +5,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Handler;
+import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.echonest.api.v4.EchoNestException;
 import com.echonest.api.v4.Segment;
@@ -23,6 +30,7 @@ import com.spotify.sdk.android.player.PlayerState;
 import com.spotify.sdk.android.player.PlayerStateCallback;
 import com.spotify.sdk.android.player.Spotify;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +40,10 @@ import java.util.concurrent.ExecutionException;
  */
 public class SpotifyModule extends CenterModule implements PlayerNotificationCallback, ConnectionStateCallback {
     public static SpotifyModule Self;
+    private AudioTask audioTask;
+
+    public ArrayList<LightModule> connectedTo = new ArrayList<>();
+
     public SpotifyModule() {
         Self = this;
     }
@@ -50,13 +62,34 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
     }
 
     @Override
-    public void OnClick(ActionBarActivity context) {
-        SpotifyFragment fragment = new SpotifyFragment();
+    public void OnClick(ActionBarActivity context, ImageView view) {
         context.getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.container,fragment )
+                .replace(R.id.container,new SpotifyFragment() )
                 .addToBackStack(null)
                 .commit();
+    }
+
+    @Override
+    public View InflateUniversal(LayoutInflater inflater, ViewGroup root) {
+        View view =  inflater.inflate(R.layout.item_control_spotify, root, false);
+
+        ImageButton play = (ImageButton)view.findViewById(R.id.play);
+        play.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(audioTask != null) {
+                    if(audioTask.play)
+                        Pause();
+                    else
+                        Resume();
+                }
+                else
+                    SpotifyModule.this.FindSongAndPlay();
+            }
+        });
+
+        return view;
     }
 
     public void FindSongAndPlay() {
@@ -78,50 +111,79 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
             @Override
             protected void onPostExecute(List<Song> songlist)
             {
-                Song s = songlist.get(2);
-                currentSong = s;
-                String spotifyID="";
-                AsyncTask<Song, Void, Track> t1 = new AsyncTask<Song, Void, Track>() {
-                    @Override
-                    protected Track doInBackground(Song... s) {
-                        try {
-                            return s[0].getTrack("spotify-WW");
-                        } catch (EchoNestException e) {
-                            e.printStackTrace();
-                        }
-                        return null;
-                    }
-                }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, s);
+                PlaySong(songlist.get(2));
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+    public void Stop() {
+        if(audioTask != null) {
+            mPlayer.pause();
+            audioTask.play = false;
+            audioTask = null;
+        }
+    }
 
+    public void Pause() {
+        if(audioTask != null) {
+            mPlayer.pause();
+            audioTask.play = false;
+        }
+    }
+    public void Resume() {
+        if(audioTask != null) {
+            mPlayer.resume();
+            audioTask = new AudioTask();
+            audioTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        }
+    }
+
+    public void PlaySong(Song s) {
+        Stop();
+        String spotifyID="";
+        AsyncTask<Song, Void, Track> t1 = new AsyncTask<Song, Void, Track>() {
+            @Override
+            protected Track doInBackground(Song... s) {
                 try {
-                    Track track = t1.get();
-                    currentTrack = track;
-                    AsyncTask<Track, Void, String> tt = new AsyncTask<Track, Void, String>() {
-                        @Override
-                        protected String doInBackground(Track... t) {
-                            try {
-                                return t[0].getForeignID();
-                            } catch (EchoNestException e) {
-                                e.printStackTrace();
-                            }
-                            return null;
-                        }
-                    }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, track);
-
-                    spotifyID = tt.get().trim();
-
-                    System.out.printf("Spotify FID %s\n", spotifyID);
-                    Log.d("PLAY", "Paused");
-                    PlaySong(spotifyID);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (ExecutionException e) {
+                    return s[0].getTrack("spotify-WW");
+                } catch (EchoNestException e) {
                     e.printStackTrace();
                 }
-
-
+                return null;
             }
-        }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, s);
+
+        try {
+            Track track = t1.get();
+            currentTrack = track;
+            AsyncTask<Track, Void, String> tt = new AsyncTask<Track, Void, String>() {
+                @Override
+                protected String doInBackground(Track... t) {
+                    try {
+                        if(t.length > 0 && t[0] != null)
+                            return t[0].getForeignID();
+                    } catch (EchoNestException e) {
+                        e.printStackTrace();
+                    }
+                    return null;
+                }
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, track);
+
+            String id = tt.get();
+            if(id == null) {
+                Toast.makeText(MainActivity.Self, "Invalid Track", Toast.LENGTH_LONG).show();
+                return;
+            }
+            spotifyID = tt.get().trim();
+
+            System.out.printf("Spotify FID %s\n", spotifyID);
+            Log.d("PLAY", "Paused");
+            currentSong = s;
+            PlaySong(spotifyID);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 
     public void CreatePlayer(Context context) {
@@ -148,6 +210,7 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
     }
 
     public void PlaySong(String id) {
+        Stop();
         Log.d("PLAYSONG", "Entered");
 
         if(mPlayer!=null) {
@@ -158,7 +221,8 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
             Log.d("PLAY","Id: "+id);
             //mPlayer.pause();
             mPlayer.play(id);
-            new AudioTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+            audioTask = new AudioTask();
+            audioTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
 
@@ -208,37 +272,38 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
     }
 
     private class AudioTask extends AsyncTask<Void, Void, Void> {
+        private boolean loaded = false;
+        public boolean play = true;
+        Iterator<Segment> iterator;
+        final int[] currentPosition = {-1};
+
+        double track_min = Float.MAX_VALUE;
+        double track_max = Float.MIN_VALUE;
+
+        double localMin = 0;
+        double localMax = 0;
+        int samples_count = 0;
+        float last_value = 0.5f;
+        final int num_samples = 8;
+        double[] last_samples =new double[num_samples];
+        Segment segment;
+        final String[] currentTrackUri = {""};
 
         @Override
         protected Void doInBackground(Void... params) {
-            PlayerState ps = new PlayerState();
             try {
-                Thread.sleep(1000);
-                Log.d("AUDIO","Entering Player State");
-                boolean play = true;
-                final String[] currentTrackUri = {""};
-                final int[] currentPosition = {-1};
-                double lastMax = currentTrack.getLoudness();
-                float lastValue = 0.5f;
-                LightModule.Self.SetBrightness(lastValue);
-                Iterator<Segment> iterator = currentTrack.getAnalysis().getSegments().iterator();
-                Segment segment = iterator.next();
-                double avg = currentTrack.getLoudness();
-                final int num_samples = 8;
-                double[] last_samples =new double[num_samples];
-                double localAverage = 0;
-                double localMin = 0;
-                double localMax = 0;
-                int samples_count = 0;
-                float last_value = 0.5f;
-                double track_min = Float.MAX_VALUE;
-                double track_max = Float.MIN_VALUE;
-                for(Segment s : currentTrack.getAnalysis().getSegments())
-                {
-                    track_max = Math.max(track_max, s.getLoudnessMax());
-                    track_min = Math.min(track_min, s.getLoudnessMax());
-                }
 
+                if(loaded == false) {
+                    loaded = true;
+                    iterator = currentTrack.getAnalysis().getSegments().iterator();
+                    segment = iterator.next();
+
+                    for (Segment s : currentTrack.getAnalysis().getSegments()) {
+                        track_max = Math.max(track_max, s.getLoudnessMax());
+                        track_min = Math.min(track_min, s.getLoudnessMax());
+                    }
+                }
+                Log.d("AUDIO","Entering Player State");
                 while(play){
 
                     mPlayer.getPlayerState(new PlayerStateCallback() {
@@ -260,15 +325,12 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
                             break;
                         }
                         last_samples[samples_count%num_samples] = segment.getLoudnessMax();
-                        localAverage = 0;
                         localMin = Float.MAX_VALUE;
                         localMax = Float.MIN_VALUE;
                         for(double a : last_samples) {
-                            localAverage += a;
                             localMax = Math.max(localMax, a);
                             localMin = Math.min(localMin, a);
                         }
-                        localAverage /= num_samples;
                         samples_count++;
                     }
                     double s = segment.getLoudnessMax();
@@ -277,15 +339,15 @@ public class SpotifyModule extends CenterModule implements PlayerNotificationCal
 
                     double localv = (s-localMin)/(localMax-localMin);
                     double totalv = (s-track_min)/(track_max-track_min);
-                    double v = totalv * localv;
-                    Log.d("Smart", "local " + Double.toString(localv) + " total " + Double.toString(totalv));
-                    last_value = (float) (lastValue + (v-last_value)*0.5f);
-                    LightModule.Self.SetBrightness(last_value);
+                    double v = Math.min(totalv * localv + 0.1, 1.0);
+                    last_value = (float) (last_value + (v-last_value)*0.5f);
+                    for(LightModule m : connectedTo)
+                        m.SetBrightness(last_value);
                     Thread.sleep(100);
                 }
-            }catch (EchoNestException e) {
-                e.printStackTrace();
             } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (EchoNestException e) {
                 e.printStackTrace();
             }
             return null;

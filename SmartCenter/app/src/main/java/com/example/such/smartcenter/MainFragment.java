@@ -135,8 +135,9 @@ public class MainFragment extends Fragment implements View.OnTouchListener {
             dragging = null;
             int displacement = abs(originY-y) + abs(originX -x);
             if(displacement < 10) {
-                if(module != null)
-                    module.OnClick((ActionBarActivity) getActivity());
+                if(module != null) {
+                    module.OnClick((ActionBarActivity) getActivity(), (ImageView) v);
+                }
             }
             else {
                 int cx = par.leftMargin+par.height/2;
@@ -175,9 +176,9 @@ public class MainFragment extends Fragment implements View.OnTouchListener {
                     };
                     a.setDuration(500);
                     v.startAnimation(a);
-                    if(module.CompatibleWith(buttons.get(collide))) {
-
-                    } else {
+                    CenterModule collideWith = buttons.get(collide);
+                    if(module instanceof SpotifyModule && collideWith instanceof LightModule && ((SpotifyModule) module).connectedTo.contains(collideWith) == false) {
+                        ((SpotifyModule) module).connectedTo.add((LightModule) collideWith);
                     }
                 }
             }

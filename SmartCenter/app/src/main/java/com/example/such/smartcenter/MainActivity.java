@@ -11,6 +11,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.os.Build;
+import android.widget.ImageView;
 
 import com.spotify.sdk.android.player.Spotify;
 
@@ -19,13 +20,31 @@ import java.util.List;
 
 
 public class MainActivity extends ActionBarActivity {
+    static public MainActivity Self;
+
     static public ArrayList<CenterModule> modules = new ArrayList<CenterModule>();
 
+    public class UniversalModule extends CenterModule {
+        @Override
+        public int GetResourceId() {
+            return R.drawable.ic_remote;
+        }
+
+        @Override
+        public void OnClick(ActionBarActivity context, ImageView view) {
+            context.getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.container, new UniversalFragment())
+                    .addToBackStack(null)
+                    .commit();
+        }
+    }
+
     public MainActivity() {
+        Self = this;
         if(modules.size() == 0) {
-            modules.add(new LightModule());
-            modules.add(new SpotifyModule());
             modules.add(new AddModule());
+            modules.add(new UniversalModule());
         }
     }
     @Override
@@ -34,7 +53,7 @@ public class MainActivity extends ActionBarActivity {
         setContentView(R.layout.activity_main);
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
-                    .add(R.id.container, new MainFragment())
+                    .add(R.id.container, new SplashScreenFragment())
                     .commit();
         }
     }
@@ -46,25 +65,4 @@ public class MainActivity extends ActionBarActivity {
         super.onDestroy();
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
 }
