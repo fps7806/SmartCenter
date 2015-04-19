@@ -10,12 +10,17 @@ import android.content.Context;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
  * Created by Such on 4/18/2015.
  */
 public class LightModule extends CenterModule {
+    static public  LightModule Self;
+    public LightModule() {
+        Self = this;
+    }
 
     static public class BluetoothConnection {
         private BluetoothGatt bluetoothGatt;
@@ -62,6 +67,15 @@ public class LightModule extends CenterModule {
         return R.drawable.ic_light;
     }
 
+    public static byte [] float2ByteArray (float value)
+    {
+        return ByteBuffer.allocate(4).putFloat(value).array();
+    }
+
+    public void SetBrightness(float value) {
+        connection.Send(float2ByteArray(value));
+    }
+
     @Override
     public void OnClick(ActionBarActivity context) {
         if(connection == null) {
@@ -74,7 +88,8 @@ public class LightModule extends CenterModule {
                     .commit();
         }
         else {
-            connection.Send(new byte[]{0, 5, 6, 8});
+            float value = 0.8f;
+            SetBrightness(value);
         }
     }
 }

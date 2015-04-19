@@ -5,7 +5,6 @@ var myPin = tessel.port['GPIO'].analog[0];
 var value = 1.0;
 setInterval(function readPin () {
   myPin.write(value);
-  value = value * 0.99;
 }, 10);
 
 var ble = blelib.use(tessel.port['A']);
@@ -21,8 +20,8 @@ ble.on('connect', function(master) {
 });
 
 ble.on( 'remoteWrite', function(connection, index, valueWritten) {
-	console.log(valueWritten);
-	value = 1.0;
+	value = valueWritten.readFloatBE(0);
+	console.log(value);
   } );
 
 ble.on('disconnect', function(master) {
